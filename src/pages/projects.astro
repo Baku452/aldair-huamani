@@ -1,0 +1,293 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import { SITE_TITLE } from '../consts';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<BaseHead title={`Projects - ${SITE_TITLE}`} description="My projects and tools" />
+	</head>
+	<body>
+		<Header />
+		<main>
+			<section class="projects-section">
+				<h1>Projects</h1>
+
+				<div class="project-card">
+					<div class="project-header">
+						<h2>PDF Selector</h2>
+						<span class="badge">Latest: v1.0.12</span>
+					</div>
+					<p>
+						A desktop tool to rename and organize PDF files quickly and efficiently.
+						Select, rename, and manage your PDF documents with ease.
+					</p>
+					<div class="project-links">
+						<a
+							href="https://github.com/Baku452/pdf-selector/releases/download/v1.0.12/PDF_Renombrar_Archivos.exe"
+							class="btn btn-download"
+							download
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+								<polyline points="7 10 12 15 17 10"/>
+								<line x1="12" y1="15" x2="12" y2="3"/>
+							</svg>
+							Download .exe
+						</a>
+						<a
+							href="https://github.com/Baku452/pdf-selector"
+							class="btn btn-outline"
+							target="_blank"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+								<path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+							</svg>
+							View on GitHub
+						</a>
+					</div>
+				</div>
+			</section>
+
+			<section class="bug-report-section">
+				<h2>Report a Bug</h2>
+				<p>Found an issue with one of the projects? Fill out the form below to let me know.</p>
+
+				<form class="bug-form" id="bug-form">
+					<div class="form-group">
+						<label for="project">Project</label>
+						<select id="project" name="project" required>
+							<option value="">Select a project...</option>
+							<option value="pdf-selector">PDF Selector</option>
+						</select>
+					</div>
+
+					<div class="form-group">
+						<label for="name">Your Name</label>
+						<input type="text" id="name" name="name" placeholder="John Doe" required />
+					</div>
+
+					<div class="form-group">
+						<label for="email">Email</label>
+						<input type="email" id="email" name="email" placeholder="john@example.com" required />
+					</div>
+
+					<div class="form-group">
+						<label for="bug-title">Bug Title</label>
+						<input type="text" id="bug-title" name="bug-title" placeholder="Brief description of the issue" required />
+					</div>
+
+					<div class="form-group">
+						<label for="description">Description</label>
+						<textarea id="description" name="description" rows="5" placeholder="Please describe the bug in detail. Include steps to reproduce, expected behavior, and what actually happened." required></textarea>
+					</div>
+
+					<div class="form-group">
+						<label for="file-upload">Upload Screenshot (optional)</label>
+						<input type="file" id="file-upload" name="file-upload" accept="image/*,.pdf,.log,.txt" />
+					</div>
+
+					<button type="submit" class="btn btn-submit">Submit Bug Report</button>
+				</form>
+
+				<div class="form-success" id="form-success" style="display: none;">
+					<p>Thank you for your report! I'll look into it as soon as possible.</p>
+				</div>
+			</section>
+		</main>
+		<Footer />
+	</body>
+</html>
+
+<script>
+	const form = document.getElementById('bug-form') as HTMLFormElement;
+	const success = document.getElementById('form-success') as HTMLElement;
+
+	form.addEventListener('submit', (e) => {
+		e.preventDefault();
+		form.style.display = 'none';
+		success.style.display = 'block';
+	});
+</script>
+
+<style>
+	.projects-section {
+		margin-bottom: 3em;
+	}
+
+	.project-card {
+		background: var(--card-bg);
+		border: 1px solid var(--stroke);
+		border-radius: 12px;
+		padding: 2em;
+		margin-top: 1.5em;
+	}
+
+	.project-header {
+		display: flex;
+		align-items: center;
+		gap: 1em;
+		flex-wrap: wrap;
+	}
+
+	.project-header h2 {
+		margin: 0;
+		color: var(--card-text);
+	}
+
+	.badge {
+		background: var(--highlight);
+		color: var(--button-text);
+		padding: 0.25em 0.75em;
+		border-radius: 20px;
+		font-size: 0.75em;
+		font-weight: 700;
+	}
+
+	.project-card p {
+		color: var(--paragraph);
+		margin: 1em 0 1.5em;
+	}
+
+	.project-links {
+		display: flex;
+		gap: 1em;
+		flex-wrap: wrap;
+	}
+
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5em;
+		padding: 0.75em 1.5em;
+		border-radius: 8px;
+		font-size: 1rem;
+		font-weight: 700;
+		text-decoration: none;
+		cursor: pointer;
+		transition: transform 0.15s ease, box-shadow 0.15s ease;
+		border: none;
+		font-family: inherit;
+	}
+
+	.btn:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 4px 12px rgba(var(--black), 15%);
+	}
+
+	.btn-download {
+		background: var(--button);
+		color: var(--button-text);
+	}
+
+	.btn-download:hover {
+		color: var(--button-text);
+	}
+
+	.btn-outline {
+		background: transparent;
+		color: var(--stroke);
+		border: 2px solid var(--stroke);
+	}
+
+	.btn-outline:hover {
+		background: var(--stroke);
+		color: var(--button-text);
+	}
+
+	.bug-report-section {
+		background: var(--card-bg);
+		border-radius: 12px;
+		padding: 2em;
+		margin-bottom: 2em;
+	}
+
+	.bug-report-section h2 {
+		color: var(--card-text);
+		margin-bottom: 0.25em;
+	}
+
+	.bug-report-section > p {
+		color: var(--paragraph);
+		margin-bottom: 1.5em;
+	}
+
+	.bug-form {
+		display: flex;
+		flex-direction: column;
+		gap: 1.25em;
+	}
+
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4em;
+	}
+
+	.form-group label {
+		font-weight: 700;
+		color: var(--headline);
+		font-size: 0.9em;
+	}
+
+	.form-group input,
+	.form-group select,
+	.form-group textarea {
+		padding: 0.75em 1em;
+		border: 2px solid var(--stroke);
+		border-radius: 8px;
+		background: var(--bg);
+		color: var(--headline);
+		font-size: 1rem;
+		font-family: inherit;
+		transition: border-color 0.15s ease;
+	}
+
+	.form-group input:focus,
+	.form-group select:focus,
+	.form-group textarea:focus {
+		outline: none;
+		border-color: var(--highlight);
+	}
+
+	.form-group input[type="file"] {
+		padding: 0.5em;
+		cursor: pointer;
+	}
+
+	.btn-submit {
+		background: var(--highlight);
+		color: var(--button-text);
+		padding: 0.85em 2em;
+		align-self: flex-start;
+	}
+
+	.form-success {
+		text-align: center;
+		padding: 2em;
+	}
+
+	.form-success p {
+		color: var(--card-text);
+		font-size: 1.15em;
+		font-weight: 700;
+	}
+
+	@media (max-width: 720px) {
+		.project-card,
+		.bug-report-section {
+			padding: 1.25em;
+		}
+
+		.project-links {
+			flex-direction: column;
+		}
+
+		.btn {
+			justify-content: center;
+		}
+	}
+</style>
