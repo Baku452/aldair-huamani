@@ -66,15 +66,27 @@ import { SITE_TITLE } from '../../consts';
 	type Lang = keyof typeof translations;
 	type TranslationKey = keyof (typeof translations)['en'];
 
+	const REPO = 'Baku452/pdf-selector';
+
+	interface GitHubIssue {
+		number: number;
+		title: string;
+		body: string;
+		state: string;
+		html_url: string;
+		created_at: string;
+		user: { login: string };
+		labels: { name: string }[];
+	}
+
 	interface BugReport {
-		id: string;
-		project: string;
-		name: string;
-		email: string;
+		id: number;
 		title: string;
 		description: string;
 		status: string;
 		date: string;
+		reporter: string;
+		url: string;
 	}
 
 	const statusLabels: Record<string, Record<string, string>> = {
@@ -83,13 +95,49 @@ import { SITE_TITLE } from '../../consts';
 	};
 
 	let currentFilter = 'all';
-
-	function getReports(): BugReport[] {
-		return JSON.parse(localStorage.getItem('bugReports') || '[]');
-	}
+	let allReports: BugReport[] = [];
 
 	function getLang(): Lang {
 		return (localStorage.getItem('lang') || 'en') as Lang;
+	}
+
+	function mapStatus(issue: GitHubIssue): string {
+		const labels = issue.labels.map((l) => l.name.toLowerCase());
+		if (labels.includes('fixed') || issue.state === 'closed') return 'fixed';
+		if (labels.includes('in-progress') || labels.includes('wip')) return 'in-progress';
+		return 'open';
+	}
+
+	function parseReporter(body: string | null): string {
+		if (!body) return 'Unknown';
+		const match = body.match(/\*\*Reported by:\*\*\s*(.+)/);
+		return match ? match[1].trim() : 'Unknown';
+	}
+
+	async function fetchIssues(): Promise<BugReport[]> {
+		const url =
+			`https://api.github.com/repos/${REPO}/issues` +
+			`?labels=bug&state=all&per_page=100`;
+		const res = await fetch(url, {
+			headers: { Accept: 'application/vnd.github+json' },
+		});
+
+		if (!res.ok) return [];
+
+		const issues: GitHubIssue[] = await res.json();
+		return issues
+			.filter((i) => !i.title.startsWith('[PR]'))
+			.map((issue) => ({
+				id: issue.number,
+				title: issue.title.replace(/^\[Bug\]\s*/i, ''),
+				description: issue.body
+					? issue.body.replace(/## Bug Report[\s\S]*?### Description\n\n/m, '').slice(0, 200)
+					: '',
+				status: mapStatus(issue),
+				date: issue.created_at,
+				reporter: parseReporter(issue.body),
+				url: issue.html_url,
+			}));
 	}
 
 	function updateStats(reports: BugReport[]) {
@@ -104,18 +152,27 @@ import { SITE_TITLE } from '../../consts';
 		(document.getElementById('stat-fixed') as HTMLElement).textContent = fixed.toString();
 	}
 
+	function escapeHtml(text: string): string {
+		const div = document.createElement('div');
+		div.textContent = text;
+		return div.innerHTML;
+	}
+
 	function renderReports() {
-		const reports = getReports();
 		const lang = getLang();
 		const bugList = document.getElementById('bug-list') as HTMLElement;
 		const reportedByLabel = translations[lang].reportedBy;
 
-		updateStats(reports);
+		updateStats(allReports);
 
-		const filtered = currentFilter === 'all' ? reports : reports.filter((r) => r.status === currentFilter);
+		const filtered =
+			currentFilter === 'all'
+				? allReports
+				: allReports.filter((r) => r.status === currentFilter);
 
 		if (filtered.length === 0) {
-			bugList.innerHTML = `<p class="empty-state" data-i18n="noBugsFound">${translations[lang].noBugsFound}</p>`;
+			bugList.innerHTML =
+				`<p class="empty-state">${translations[lang].noBugsFound}</p>`;
 			return;
 		}
 
@@ -123,11 +180,10 @@ import { SITE_TITLE } from '../../consts';
 			.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 			.map(
 				(report) => `
-				<div class="bug-card" data-status="${report.status}">
+				<a class="bug-card" data-status="${report.status}" href="${escapeHtml(report.url)}" target="_blank">
 					<div class="bug-card-header">
 						<div class="bug-info">
-							<h3>${escapeHtml(report.title)}</h3>
-							<span class="bug-project">${escapeHtml(report.project)}</span>
+							<h3>#${report.id} ${escapeHtml(report.title)}</h3>
 						</div>
 						<span class="status-badge status-${report.status}">
 							${statusLabels[lang]?.[report.status] || report.status}
@@ -135,19 +191,13 @@ import { SITE_TITLE } from '../../consts';
 					</div>
 					<p class="bug-description">${escapeHtml(report.description)}</p>
 					<div class="bug-meta">
-						<span>${reportedByLabel} ${escapeHtml(report.name)}</span>
+						<span>${reportedByLabel} ${escapeHtml(report.reporter)}</span>
 						<span>${new Date(report.date).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
 					</div>
-				</div>
+				</a>
 			`,
 			)
 			.join('');
-	}
-
-	function escapeHtml(text: string): string {
-		const div = document.createElement('div');
-		div.textContent = text;
-		return div.innerHTML;
 	}
 
 	// Filter buttons
@@ -171,9 +221,16 @@ import { SITE_TITLE } from '../../consts';
 		renderReports();
 	}
 
+	// Init: fetch issues then render
 	const lang = getLang();
-	applyLang(lang);
-	renderReports();
+	const bugList = document.getElementById('bug-list') as HTMLElement;
+	bugList.innerHTML = '<p class="empty-state loading">Loading...</p>';
+
+	fetchIssues().then((reports) => {
+		allReports = reports;
+		applyLang(lang);
+	});
+
 	document.addEventListener('langchange', (e) => {
 		applyLang((e as CustomEvent).detail.lang as Lang);
 	});
@@ -297,11 +354,14 @@ import { SITE_TITLE } from '../../consts';
 	}
 
 	:global(.bug-card) {
+		display: block;
 		background: var(--card-bg);
 		border-radius: 12px;
 		padding: 1.5em;
 		border-left: 4px solid var(--stroke);
 		transition: transform 0.15s ease;
+		text-decoration: none;
+		color: inherit;
 	}
 
 	:global(.bug-card:hover) {

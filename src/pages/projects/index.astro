@@ -123,28 +123,46 @@ import { SITE_TITLE } from '../../consts';
 	// Form submission
 	const form = document.getElementById('bug-form') as HTMLFormElement;
 	const success = document.getElementById('form-success') as HTMLElement;
+	const submitBtn = form.querySelector('.btn-submit') as HTMLButtonElement;
 
-	form.addEventListener('submit', (e) => {
+	form.addEventListener('submit', async (e) => {
 		e.preventDefault();
+		submitBtn.disabled = true;
+		submitBtn.textContent = '...';
 
 		const formData = new FormData(form);
-		const report = {
-			id: Date.now().toString(),
-			project: formData.get('project') as string,
-			name: formData.get('name') as string,
-			email: formData.get('email') as string,
-			title: formData.get('bug-title') as string,
-			description: formData.get('description') as string,
-			status: 'open',
-			date: new Date().toISOString(),
+		const payload = {
+			project: formData.get('project'),
+			name: formData.get('name'),
+			email: formData.get('email'),
+			title: formData.get('bug-title'),
+			description: formData.get('description'),
 		};
 
-		const reports = JSON.parse(localStorage.getItem('bugReports') || '[]');
-		reports.push(report);
-		localStorage.setItem('bugReports', JSON.stringify(reports));
+		try {
+			const res = await fetch('/api/report-bug', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
+			});
 
-		form.style.display = 'none';
-		success.style.display = 'block';
+			if (!res.ok) throw new Error('Failed');
+
+			form.style.display = 'none';
+			success.style.display = 'block';
+		} catch {
+			submitBtn.disabled = false;
+			const lang = localStorage.getItem('lang') || 'en';
+			submitBtn.textContent =
+				lang === 'es'
+					? 'Enviar Reporte de Error'
+					: 'Submit Bug Report';
+			alert(
+				lang === 'es'
+					? 'Error al enviar el reporte. Intenta de nuevo.'
+					: 'Failed to submit report. Please try again.'
+			);
+		}
 	});
 
 	// i18n
