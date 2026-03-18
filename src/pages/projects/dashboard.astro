@@ -1,0 +1,393 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Footer from '../../components/Footer.astro';
+import Header from '../../components/Header.astro';
+import { SITE_TITLE } from '../../consts';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<BaseHead title={`Bug Tracker - ${SITE_TITLE}`} description="Track reported bugs and their status" />
+	</head>
+	<body>
+		<Header />
+		<main>
+			<div class="dashboard-header">
+				<div class="dashboard-title">
+					<a href="/projects" class="back-link">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M19 12H5"/>
+							<polyline points="12 19 5 12 12 5"/>
+						</svg>
+						<span data-i18n="backToProjects">Back to Projects</span>
+					</a>
+					<h1 data-i18n="dashboardTitle">Bug Tracker Dashboard</h1>
+					<p data-i18n="dashboardDesc">Track the status of reported bugs across all projects.</p>
+				</div>
+			</div>
+
+			<div class="stats-grid">
+				<div class="stat-card">
+					<span class="stat-number" id="stat-total">0</span>
+					<span class="stat-label" data-i18n="totalReports">Total Reports</span>
+				</div>
+				<div class="stat-card stat-open">
+					<span class="stat-number" id="stat-open">0</span>
+					<span class="stat-label" data-i18n="openIssues">Open Issues</span>
+				</div>
+				<div class="stat-card stat-progress">
+					<span class="stat-number" id="stat-progress">0</span>
+					<span class="stat-label" data-i18n="inProgress">In Progress</span>
+				</div>
+				<div class="stat-card stat-fixed">
+					<span class="stat-number" id="stat-fixed">0</span>
+					<span class="stat-label" data-i18n="resolved">Resolved</span>
+				</div>
+			</div>
+
+			<div class="filters">
+				<button class="filter-btn active" data-filter="all" data-i18n="filterAll">All</button>
+				<button class="filter-btn" data-filter="open" data-i18n="filterOpen">Open</button>
+				<button class="filter-btn" data-filter="in-progress" data-i18n="filterInProgress">In Progress</button>
+				<button class="filter-btn" data-filter="fixed" data-i18n="filterFixed">Fixed</button>
+			</div>
+
+			<div class="bug-list" id="bug-list">
+				<p class="empty-state" data-i18n="noBugsFound">No bug reports found.</p>
+			</div>
+		</main>
+		<Footer />
+	</body>
+</html>
+
+<script>
+	import { translations } from '../../i18n';
+	type Lang = keyof typeof translations;
+	type TranslationKey = keyof (typeof translations)['en'];
+
+	interface BugReport {
+		id: string;
+		project: string;
+		name: string;
+		email: string;
+		title: string;
+		description: string;
+		status: string;
+		date: string;
+	}
+
+	const statusLabels: Record<string, Record<string, string>> = {
+		en: { open: 'Open', 'in-progress': 'In Progress', fixed: 'Fixed' },
+		es: { open: 'Abierto', 'in-progress': 'En Progreso', fixed: 'Resuelto' },
+	};
+
+	let currentFilter = 'all';
+
+	function getReports(): BugReport[] {
+		return JSON.parse(localStorage.getItem('bugReports') || '[]');
+	}
+
+	function getLang(): Lang {
+		return (localStorage.getItem('lang') || 'en') as Lang;
+	}
+
+	function updateStats(reports: BugReport[]) {
+		const total = reports.length;
+		const open = reports.filter((r) => r.status === 'open').length;
+		const progress = reports.filter((r) => r.status === 'in-progress').length;
+		const fixed = reports.filter((r) => r.status === 'fixed').length;
+
+		(document.getElementById('stat-total') as HTMLElement).textContent = total.toString();
+		(document.getElementById('stat-open') as HTMLElement).textContent = open.toString();
+		(document.getElementById('stat-progress') as HTMLElement).textContent = progress.toString();
+		(document.getElementById('stat-fixed') as HTMLElement).textContent = fixed.toString();
+	}
+
+	function renderReports() {
+		const reports = getReports();
+		const lang = getLang();
+		const bugList = document.getElementById('bug-list') as HTMLElement;
+		const reportedByLabel = translations[lang].reportedBy;
+
+		updateStats(reports);
+
+		const filtered = currentFilter === 'all' ? reports : reports.filter((r) => r.status === currentFilter);
+
+		if (filtered.length === 0) {
+			bugList.innerHTML = `<p class="empty-state" data-i18n="noBugsFound">${translations[lang].noBugsFound}</p>`;
+			return;
+		}
+
+		bugList.innerHTML = filtered
+			.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+			.map(
+				(report) => `
+				<div class="bug-card" data-status="${report.status}">
+					<div class="bug-card-header">
+						<div class="bug-info">
+							<h3>${escapeHtml(report.title)}</h3>
+							<span class="bug-project">${escapeHtml(report.project)}</span>
+						</div>
+						<span class="status-badge status-${report.status}">
+							${statusLabels[lang]?.[report.status] || report.status}
+						</span>
+					</div>
+					<p class="bug-description">${escapeHtml(report.description)}</p>
+					<div class="bug-meta">
+						<span>${reportedByLabel} ${escapeHtml(report.name)}</span>
+						<span>${new Date(report.date).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+					</div>
+				</div>
+			`,
+			)
+			.join('');
+	}
+
+	function escapeHtml(text: string): string {
+		const div = document.createElement('div');
+		div.textContent = text;
+		return div.innerHTML;
+	}
+
+	// Filter buttons
+	document.querySelectorAll('.filter-btn').forEach((btn) => {
+		btn.addEventListener('click', () => {
+			document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+			btn.classList.add('active');
+			currentFilter = (btn as HTMLElement).dataset.filter || 'all';
+			renderReports();
+		});
+	});
+
+	// i18n
+	function applyLang(lang: Lang) {
+		const t = translations[lang];
+		document.documentElement.lang = lang;
+		document.querySelectorAll('[data-i18n]').forEach((el) => {
+			const key = (el as HTMLElement).dataset.i18n as TranslationKey;
+			if (t[key]) el.textContent = t[key];
+		});
+		renderReports();
+	}
+
+	const lang = getLang();
+	applyLang(lang);
+	renderReports();
+	document.addEventListener('langchange', (e) => {
+		applyLang((e as CustomEvent).detail.lang as Lang);
+	});
+</script>
+
+<style>
+	.dashboard-header {
+		margin-bottom: 2em;
+	}
+
+	.back-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4em;
+		color: var(--paragraph);
+		text-decoration: none;
+		font-size: 0.9em;
+		margin-bottom: 1em;
+		transition: color 0.15s ease;
+	}
+
+	.back-link:hover {
+		color: var(--highlight);
+	}
+
+	.dashboard-title h1 {
+		margin-bottom: 0.25em;
+	}
+
+	.dashboard-title p {
+		color: var(--paragraph);
+		margin: 0;
+	}
+
+	.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 1em;
+		margin-bottom: 2em;
+	}
+
+	.stat-card {
+		background: var(--card-bg);
+		border-radius: 12px;
+		padding: 1.5em;
+		text-align: center;
+		border: 2px solid transparent;
+	}
+
+	.stat-card.stat-open {
+		border-color: var(--highlight);
+	}
+
+	.stat-card.stat-progress {
+		border-color: var(--button);
+	}
+
+	.stat-card.stat-fixed {
+		border-color: #4caf50;
+	}
+
+	.stat-number {
+		display: block;
+		font-size: 2.5em;
+		font-weight: 700;
+		color: var(--headline);
+		line-height: 1;
+	}
+
+	.stat-label {
+		display: block;
+		font-size: 0.8em;
+		color: var(--paragraph);
+		margin-top: 0.5em;
+		font-weight: 700;
+	}
+
+	.filters {
+		display: flex;
+		gap: 0.5em;
+		margin-bottom: 1.5em;
+		flex-wrap: wrap;
+	}
+
+	.filter-btn {
+		padding: 0.5em 1.25em;
+		border: 2px solid var(--stroke);
+		border-radius: 20px;
+		background: transparent;
+		color: var(--paragraph);
+		font-family: inherit;
+		font-size: 0.85em;
+		font-weight: 700;
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	.filter-btn:hover {
+		border-color: var(--highlight);
+		color: var(--highlight);
+	}
+
+	.filter-btn.active {
+		background: var(--stroke);
+		color: var(--button-text);
+		border-color: var(--stroke);
+	}
+
+	.bug-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1em;
+	}
+
+	.empty-state {
+		text-align: center;
+		color: var(--paragraph);
+		padding: 3em;
+		background: var(--card-bg);
+		border-radius: 12px;
+	}
+
+	:global(.bug-card) {
+		background: var(--card-bg);
+		border-radius: 12px;
+		padding: 1.5em;
+		border-left: 4px solid var(--stroke);
+		transition: transform 0.15s ease;
+	}
+
+	:global(.bug-card:hover) {
+		transform: translateX(4px);
+	}
+
+	:global(.bug-card[data-status="open"]) {
+		border-left-color: var(--highlight);
+	}
+
+	:global(.bug-card[data-status="in-progress"]) {
+		border-left-color: var(--button);
+	}
+
+	:global(.bug-card[data-status="fixed"]) {
+		border-left-color: #4caf50;
+	}
+
+	:global(.bug-card-header) {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: 1em;
+		margin-bottom: 0.75em;
+	}
+
+	:global(.bug-info h3) {
+		margin: 0 0 0.25em;
+		color: var(--headline);
+		font-size: 1.1em;
+	}
+
+	:global(.bug-project) {
+		font-size: 0.75em;
+		background: var(--bg);
+		padding: 0.2em 0.6em;
+		border-radius: 12px;
+		color: var(--paragraph);
+		font-weight: 700;
+	}
+
+	:global(.status-badge) {
+		padding: 0.25em 0.75em;
+		border-radius: 20px;
+		font-size: 0.75em;
+		font-weight: 700;
+		white-space: nowrap;
+	}
+
+	:global(.status-open) {
+		background: var(--highlight);
+		color: var(--button-text);
+	}
+
+	:global(.status-in-progress) {
+		background: var(--button);
+		color: var(--button-text);
+	}
+
+	:global(.status-fixed) {
+		background: #4caf50;
+		color: #fff;
+	}
+
+	:global(.bug-description) {
+		color: var(--paragraph);
+		font-size: 0.9em;
+		margin: 0 0 1em;
+		line-height: 1.5;
+	}
+
+	:global(.bug-meta) {
+		display: flex;
+		justify-content: space-between;
+		font-size: 0.8em;
+		color: var(--paragraph);
+		opacity: 0.7;
+	}
+
+	@media (max-width: 720px) {
+		.stats-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+
+		:global(.bug-card-header) {
+			flex-direction: column;
+		}
+	}
+</style>
