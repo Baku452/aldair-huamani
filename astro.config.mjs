@@ -8,6 +8,8 @@ import { defineConfig } from 'astro/config';
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://www.aldairhuamani.com',
-	adapter: vercel(),
+	adapter: vercel({
+		maxDuration: 10,
+	}),
 	integrations: [mdx(), sitemap()],
 });

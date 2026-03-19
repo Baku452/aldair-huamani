@@ -1,5 +1,6 @@
 {
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "framework": "astro"
+  "framework": "astro",
+  "nodeVersion": "22.x"
 }
