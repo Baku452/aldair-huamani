@@ -1,14 +1,13 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
+import { GITHUB_TOKEN } from 'astro:env/server';
 
 const REPO_OWNER = 'Baku452';
 const REPO_NAME = 'pdf-selector';
 
 export const POST: APIRoute = async ({ request }) => {
-  const token = import.meta.env.GITHUB_TOKEN;
-
-  if (!token) {
+  if (!GITHUB_TOKEN) {
     return new Response(
       JSON.stringify({ error: 'Server misconfigured' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
@@ -53,7 +52,7 @@ export const POST: APIRoute = async ({ request }) => {
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
         Accept: 'application/vnd.github+json',
         'Content-Type': 'application/json',
         'X-GitHub-Api-Version': '2022-11-28',

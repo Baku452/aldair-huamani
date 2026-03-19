@@ -7,7 +7,16 @@ import { defineConfig } from 'astro/config';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://example.com',
+	site: 'https://www.aldairhuamani.com',
 	adapter: vercel(),
 	integrations: [mdx(), sitemap()],
+	env: {
+		schema: {
+			GITHUB_TOKEN: {
+				context: 'server',
+				access: 'secret',
+				type: 'string',
+			},
+		},
+	},
 });
