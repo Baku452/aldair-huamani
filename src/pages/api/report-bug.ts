@@ -1,15 +1,19 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { GITHUB_TOKEN } from 'astro:env/server';
 
 const REPO_OWNER = 'Baku452';
 const REPO_NAME = 'pdf-selector';
 
 export const POST: APIRoute = async ({ request }) => {
-  if (!GITHUB_TOKEN) {
+  const token = process.env.GITHUB_TOKEN;
+
+  if (!token) {
     return new Response(
-      JSON.stringify({ error: 'Server misconfigured' }),
+      JSON.stringify({
+        error: 'Server misconfigured',
+        hint: 'GITHUB_TOKEN env var is not set',
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
@@ -47,40 +51,53 @@ export const POST: APIRoute = async ({ request }) => {
     `**Email:** ${email || 'N/A'}\n\n` +
     `### Description\n\n${description}`;
 
-  const res = await fetch(
-    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        Accept: 'application/vnd.github+json',
-        'Content-Type': 'application/json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-      body: JSON.stringify({
-        title: `[Bug] ${title}`,
-        body: issueBody,
-        labels: ['bug'],
-      }),
-    }
-  );
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+        body: JSON.stringify({
+          title: `[Bug] ${title}`,
+          body: issueBody,
+          labels: ['bug'],
+        }),
+      }
+    );
 
-  if (!res.ok) {
-    const err = await res.text();
+    if (!res.ok) {
+      const err = await res.text();
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to create issue',
+          details: err,
+        }),
+        { status: res.status, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const issue = await res.json();
+
     return new Response(
-      JSON.stringify({ error: 'Failed to create issue', details: err }),
-      { status: res.status, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        success: true,
+        issueUrl: issue.html_url,
+        issueNumber: issue.number,
+      }),
+      { status: 201, headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({
+        error: 'Unexpected error',
+        message: String(err),
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
-
-  const issue = await res.json();
-
-  return new Response(
-    JSON.stringify({
-      success: true,
-      issueUrl: issue.html_url,
-      issueNumber: issue.number,
-    }),
-    { status: 201, headers: { 'Content-Type': 'application/json' } }
-  );
 };
