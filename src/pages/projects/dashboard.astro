@@ -67,8 +67,8 @@ import { SITE_TITLE } from '../../consts';
 					<p class="modal-issue-info" id="modal-issue-info"></p>
 					<div class="form-group">
 						<label for="modal-file" data-i18n="uploadFile">Upload File</label>
-						<input type="file" id="modal-file" accept="image/*,.pdf,.log,.txt" />
-						<span class="file-hint" data-i18n="fileHint">Supports images, PDF, .log, and .txt (max 10MB)</span>
+						<input type="file" id="modal-file" accept="image/*,.pdf,.log,.txt" multiple />
+						<span class="file-hint" data-i18n="fileHint">Supports images, PDF, .log, and .txt (max 50MB per file)</span>
 					</div>
 					<button class="btn btn-submit" id="modal-submit" data-i18n="uploadAttachment">Upload Attachment</button>
 					<p class="modal-status" id="modal-status" style="display: none;"></p>
@@ -152,13 +152,13 @@ import { SITE_TITLE } from '../../consts';
 				id: issue.number,
 				title: issue.title.replace(/^\[Bug\]\s*/i, ''),
 				description: issue.body
-					? issue.body.replace(/## Bug Report[\s\S]*?### Description\n\n/m, '').replace(/\n\n### Attachment[\s\S]*$/, '').slice(0, 200)
+					? issue.body.replace(/## Bug Report[\s\S]*?### Description\n\n/m, '').replace(/\n\n### Attachments?[\s\S]*$/, '').slice(0, 200)
 					: '',
 				status: mapStatus(issue),
 				date: issue.created_at,
 				reporter: parseReporter(issue.body),
 				url: issue.html_url,
-				hasAttachment: issue.body ? issue.body.includes('### Attachment') : false,
+				hasAttachment: issue.body ? (issue.body.includes('### Attachment') || issue.body.includes('### Attachments')) : false,
 			}));
 	}
 
@@ -305,49 +305,65 @@ import { SITE_TITLE } from '../../consts';
 	});
 
 	modalSubmit.addEventListener('click', async () => {
-		const file = modalFile.files?.[0];
+		const selectedFiles = modalFile.files;
 		const lang = getLang();
 
-		if (!file) {
-			alert(lang === 'es' ? 'Selecciona un archivo.' : 'Please select a file.');
+		if (!selectedFiles || selectedFiles.length === 0) {
+			alert(lang === 'es' ? 'Selecciona al menos un archivo.' : 'Please select at least one file.');
 			return;
 		}
 
-		const maxSize = 10 * 1024 * 1024; // 10MB
-		if (file.size > maxSize) {
-			alert(lang === 'es' ? 'El archivo es muy grande. Máximo 10MB.' : 'File is too large. Maximum 10MB.');
-			return;
+		const maxSize = 50 * 1024 * 1024; // 50MB per file
+		for (const file of Array.from(selectedFiles)) {
+			if (file.size > maxSize) {
+				const msg = lang === 'es'
+					? `"${file.name}" es muy grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo 50MB por archivo.`
+					: `"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum 50MB per file.`;
+				alert(msg);
+				return;
+			}
 		}
 
 		modalSubmit.disabled = true;
-		modalStatus.textContent = lang === 'es' ? 'Subiendo...' : 'Uploading...';
 		modalStatus.style.display = 'block';
 		modalStatus.className = 'modal-status';
 
 		try {
-			// Upload file directly to Vercel Blob
-			const blob = await upload(`bug-attachments/issue-${currentIssueNumber}/${file.name}`, file, {
-				access: 'public',
-				handleUploadUrl: '/api/upload-file',
-			});
+			const uploadedFiles: { name: string; url: string }[] = [];
+			const totalFiles = selectedFiles.length;
 
-			// Update the GitHub issue with the blob URL
+			for (let i = 0; i < totalFiles; i++) {
+				const file = selectedFiles[i];
+				modalStatus.textContent = lang === 'es'
+					? `Subiendo ${i + 1} de ${totalFiles}...`
+					: `Uploading ${i + 1} of ${totalFiles}...`;
+
+				const blob = await upload(`bug-attachments/issue-${currentIssueNumber}/${file.name}`, file, {
+					access: 'public',
+					handleUploadUrl: '/api/upload-file',
+				});
+				uploadedFiles.push({ name: file.name, url: blob.url });
+			}
+
+			modalStatus.textContent = lang === 'es' ? 'Actualizando reporte...' : 'Updating report...';
+
 			const res = await fetch('/api/update-bug', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					issueNumber: currentIssueNumber,
-					fileName: file.name,
-					fileUrl: blob.url,
+					files: uploadedFiles,
 				}),
 			});
 
 			if (!res.ok) throw new Error('Failed');
 
-			modalStatus.textContent = lang === 'es' ? 'Archivo subido correctamente.' : 'File uploaded successfully.';
+			const successMsg = lang === 'es'
+				? `${uploadedFiles.length} archivo(s) subido(s) correctamente.`
+				: `${uploadedFiles.length} file(s) uploaded successfully.`;
+			modalStatus.textContent = successMsg;
 			modalStatus.className = 'modal-status modal-success';
 
-			// Refresh the list after a short delay
 			setTimeout(async () => {
 				closeModal();
 				const bugList = document.getElementById('bug-list') as HTMLElement;
@@ -358,7 +374,7 @@ import { SITE_TITLE } from '../../consts';
 			}, 1500);
 		} catch {
 			modalSubmit.disabled = false;
-			modalStatus.textContent = lang === 'es' ? 'Error al subir el archivo.' : 'Failed to upload file.';
+			modalStatus.textContent = lang === 'es' ? 'Error al subir los archivos.' : 'Failed to upload files.';
 			modalStatus.className = 'modal-status modal-error';
 		}
 	});

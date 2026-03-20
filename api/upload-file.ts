@@ -15,7 +15,7 @@ export default async function handler(
       request: req as unknown as Request,
       onBeforeGenerateToken: async (pathname) => {
         return {
-          maximumSizeInBytes: 10 * 1024 * 1024, // 10MB
+          maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
           allowedContentTypes: [
             'image/png',
             'image/jpeg',

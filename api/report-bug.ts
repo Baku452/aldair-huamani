@@ -27,19 +27,21 @@ export default async function handler(
     });
   }
 
-  const { project, name, email, title, description, fileName, fileUrl } = req.body || {};
+  const { project, name, email, title, description, files } = req.body || {};
 
   if (!project || !name || !title || !description) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  // Build attachment section if file was uploaded to Vercel Blob
+  // Build attachment section for all uploaded files
   let attachmentSection = '';
-  if (fileName && fileUrl) {
-    const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName);
-    attachmentSection = isImage
-      ? `\n\n### Attachment\n\n![${fileName}](${fileUrl})`
-      : `\n\n### Attachment\n\n[${fileName}](${fileUrl})`;
+  const fileList: { name: string; url: string }[] = Array.isArray(files) ? files : [];
+  if (fileList.length > 0) {
+    const links = fileList.map((f) => {
+      const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(f.name);
+      return isImage ? `![${f.name}](${f.url})` : `- [${f.name}](${f.url})`;
+    });
+    attachmentSection = `\n\n### Attachments\n\n${links.join('\n')}`;
   }
 
   const issueBody =

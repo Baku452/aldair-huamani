@@ -39,7 +39,7 @@ export const translations = {
       'steps to reproduce, expected behavior, and ' +
       'what actually happened.',
     uploadFile: 'Upload File (optional)',
-    fileHint: 'Supports images, PDF, .log, and .txt (max 10MB)',
+    fileHint: 'Supports images, PDF, .log, and .txt (max 50MB per file)',
     submitBugReport: 'Submit Bug Report',
     thankYouReport:
       "Thank you for your report! I'll look into " + 'it as soon as possible.',
@@ -118,7 +118,7 @@ export const translations = {
       'comportamiento esperado y lo que realmente ' +
       'sucedió.',
     uploadFile: 'Subir Archivo (opcional)',
-    fileHint: 'Soporta imágenes, PDF, .log y .txt (máx 10MB)',
+    fileHint: 'Soporta imágenes, PDF, .log y .txt (máx 50MB por archivo)',
     submitBugReport: 'Enviar Reporte de Error',
     thankYouReport:
       '¡Gracias por tu reporte! Lo revisaré ' + 'lo antes posible.',

@@ -101,8 +101,8 @@ import { SITE_TITLE } from '../../consts';
 
 					<div class="form-group">
 						<label for="file-upload" data-i18n="uploadFile">Upload File (optional)</label>
-						<input type="file" id="file-upload" name="file-upload" accept="image/*,.pdf,.log,.txt" />
-						<span class="file-hint" data-i18n="fileHint">Supports images, PDF, .log, and .txt (max 10MB)</span>
+						<input type="file" id="file-upload" name="file-upload" accept="image/*,.pdf,.log,.txt" multiple />
+						<span class="file-hint" data-i18n="fileHint">Supports images, PDF, .log, and .txt (max 50MB per file)</span>
 					</div>
 
 					<button type="submit" class="btn btn-submit" data-i18n="submitBugReport">Submit Bug Report</button>
@@ -159,29 +159,39 @@ import { SITE_TITLE } from '../../consts';
 			description: formData.get('description') as string,
 		};
 
-		// Upload file to Vercel Blob if provided
-		const file = fileInput.files?.[0];
-		if (file) {
-			const maxSize = 10 * 1024 * 1024; // 10MB
-			if (file.size > maxSize) {
-				submitBtn.disabled = false;
-				submitBtn.textContent = lang === 'es' ? 'Enviar Reporte de Error' : 'Submit Bug Report';
-				alert(lang === 'es' ? 'El archivo es muy grande. Máximo 10MB.' : 'File is too large. Maximum 10MB.');
-				return;
+		// Upload files to Vercel Blob if provided
+		const selectedFiles = fileInput.files;
+		const uploadedFiles: { name: string; url: string }[] = [];
+		if (selectedFiles && selectedFiles.length > 0) {
+			const maxSize = 50 * 1024 * 1024; // 50MB per file
+			for (const file of Array.from(selectedFiles)) {
+				if (file.size > maxSize) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = lang === 'es' ? 'Enviar Reporte de Error' : 'Submit Bug Report';
+					const msg = lang === 'es'
+						? `"${file.name}" es muy grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo 50MB por archivo.`
+						: `"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum 50MB per file.`;
+					alert(msg);
+					return;
+				}
 			}
 			try {
-				const blob = await upload(`bug-attachments/${file.name}`, file, {
-					access: 'public',
-					handleUploadUrl: '/api/upload-file',
-				});
-				payload.fileName = file.name;
-				payload.fileUrl = blob.url;
+				for (const file of Array.from(selectedFiles)) {
+					const blob = await upload(`bug-attachments/${file.name}`, file, {
+						access: 'public',
+						handleUploadUrl: '/api/upload-file',
+					});
+					uploadedFiles.push({ name: file.name, url: blob.url });
+				}
 			} catch {
 				submitBtn.disabled = false;
 				submitBtn.textContent = lang === 'es' ? 'Enviar Reporte de Error' : 'Submit Bug Report';
-				alert(lang === 'es' ? 'Error al subir el archivo.' : 'Failed to upload file.');
+				alert(lang === 'es' ? 'Error al subir los archivos.' : 'Failed to upload files.');
 				return;
 			}
+		}
+		if (uploadedFiles.length > 0) {
+			(payload as Record<string, unknown>).files = uploadedFiles;
 		}
 
 		try {
