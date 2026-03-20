@@ -1,4 +1,4 @@
-import { handleUpload } from '@vercel/blob/client';
+import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(
@@ -11,12 +11,9 @@ export default async function handler(
 
   try {
     const jsonResponse = await handleUpload({
-      body: req.body,
-      request: {
-        headers: req.headers,
-        url: `https://${req.headers.host}${req.url}`,
-      } as unknown as Request,
-      onBeforeGenerateToken: async () => {
+      body: req.body as HandleUploadBody,
+      request: req as unknown as Request,
+      onBeforeGenerateToken: async (pathname) => {
         return {
           maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
           allowedContentTypes: [
@@ -30,6 +27,7 @@ export default async function handler(
           ],
         };
       },
+      onUploadCompleted: async () => {},
     });
 
     return res.status(200).json(jsonResponse);
