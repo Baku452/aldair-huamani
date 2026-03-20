@@ -117,6 +117,7 @@ import { SITE_TITLE } from '../../consts';
 </html>
 
 <script>
+	import { upload } from '@vercel/blob/client';
 	import { translations } from '../../i18n';
 	type Lang = keyof typeof translations;
 	type TranslationKey = keyof (typeof translations)['en'];
@@ -135,22 +136,10 @@ import { SITE_TITLE } from '../../consts';
 	if (savedName) nameInput.value = savedName;
 	if (savedEmail) emailInput.value = savedEmail;
 
-	function fileToBase64(file: File): Promise<string> {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = () => {
-				const result = reader.result as string;
-				// Strip the data URL prefix to get pure base64
-				resolve(result.split(',')[1]);
-			};
-			reader.onerror = reject;
-			reader.readAsDataURL(file);
-		});
-	}
-
 	form.addEventListener('submit', async (e) => {
 		e.preventDefault();
 		submitBtn.disabled = true;
+		const lang = localStorage.getItem('lang') || 'en';
 		submitBtn.textContent = '...';
 
 		const formData = new FormData(form);
@@ -169,19 +158,29 @@ import { SITE_TITLE } from '../../consts';
 			description: formData.get('description') as string,
 		};
 
-		// Handle file upload
+		// Upload file to Vercel Blob if provided
 		const file = fileInput.files?.[0];
 		if (file) {
 			const maxSize = 10 * 1024 * 1024; // 10MB
 			if (file.size > maxSize) {
 				submitBtn.disabled = false;
-				const lang = localStorage.getItem('lang') || 'en';
 				submitBtn.textContent = lang === 'es' ? 'Enviar Reporte de Error' : 'Submit Bug Report';
 				alert(lang === 'es' ? 'El archivo es muy grande. Máximo 10MB.' : 'File is too large. Maximum 10MB.');
 				return;
 			}
-			payload.fileName = file.name;
-			payload.fileBase64 = await fileToBase64(file);
+			try {
+				const blob = await upload(`bug-attachments/${file.name}`, file, {
+					access: 'public',
+					handleUploadUrl: '/api/upload-file',
+				});
+				payload.fileName = file.name;
+				payload.fileUrl = blob.url;
+			} catch {
+				submitBtn.disabled = false;
+				submitBtn.textContent = lang === 'es' ? 'Enviar Reporte de Error' : 'Submit Bug Report';
+				alert(lang === 'es' ? 'Error al subir el archivo.' : 'Failed to upload file.');
+				return;
+			}
 		}
 
 		try {

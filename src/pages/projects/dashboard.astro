@@ -80,6 +80,7 @@ import { SITE_TITLE } from '../../consts';
 </html>
 
 <script>
+	import { upload } from '@vercel/blob/client';
 	import { translations } from '../../i18n';
 	type Lang = keyof typeof translations;
 	type TranslationKey = keyof (typeof translations)['en'];
@@ -139,6 +140,7 @@ import { SITE_TITLE } from '../../consts';
 			`?labels=bug&state=all&per_page=100`;
 		const res = await fetch(url, {
 			headers: { Accept: 'application/vnd.github+json' },
+			cache: 'no-store',
 		});
 
 		if (!res.ok) return [];
@@ -302,18 +304,6 @@ import { SITE_TITLE } from '../../consts';
 		if (e.target === modal) closeModal();
 	});
 
-	function fileToBase64(file: File): Promise<string> {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = () => {
-				const result = reader.result as string;
-				resolve(result.split(',')[1]);
-			};
-			reader.onerror = reject;
-			reader.readAsDataURL(file);
-		});
-	}
-
 	modalSubmit.addEventListener('click', async () => {
 		const file = modalFile.files?.[0];
 		const lang = getLang();
@@ -323,7 +313,7 @@ import { SITE_TITLE } from '../../consts';
 			return;
 		}
 
-		const maxSize = 10 * 1024 * 1024;
+		const maxSize = 10 * 1024 * 1024; // 10MB
 		if (file.size > maxSize) {
 			alert(lang === 'es' ? 'El archivo es muy grande. Máximo 10MB.' : 'File is too large. Maximum 10MB.');
 			return;
@@ -335,14 +325,20 @@ import { SITE_TITLE } from '../../consts';
 		modalStatus.className = 'modal-status';
 
 		try {
-			const fileBase64 = await fileToBase64(file);
+			// Upload file directly to Vercel Blob
+			const blob = await upload(`bug-attachments/issue-${currentIssueNumber}/${file.name}`, file, {
+				access: 'public',
+				handleUploadUrl: '/api/upload-file',
+			});
+
+			// Update the GitHub issue with the blob URL
 			const res = await fetch('/api/update-bug', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					issueNumber: currentIssueNumber,
 					fileName: file.name,
-					fileBase64,
+					fileUrl: blob.url,
 				}),
 			});
 

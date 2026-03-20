@@ -10,41 +10,6 @@ const GITHUB_HEADERS = (token: string) => ({
   'X-GitHub-Api-Version': '2022-11-28',
 });
 
-async function uploadFileToRepo(
-  token: string,
-  fileName: string,
-  fileBase64: string,
-  issueNumber: number
-): Promise<string | null> {
-  const path = `bug-attachments/issue-${issueNumber}/${fileName}`;
-  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`;
-
-  // Check if file already exists (to get sha for overwrite)
-  const checkRes = await fetch(url, { headers: GITHUB_HEADERS(token) });
-  let sha: string | undefined;
-  if (checkRes.ok) {
-    const existing = await checkRes.json();
-    sha = existing.sha;
-  }
-
-  const body: Record<string, string> = {
-    message: `Attachment for issue #${issueNumber}: ${fileName}`,
-    content: fileBase64,
-  };
-  if (sha) body.sha = sha;
-
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: GITHUB_HEADERS(token),
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) return null;
-
-  const data = await res.json();
-  return data.content?.download_url || null;
-}
-
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -62,10 +27,10 @@ export default async function handler(
     });
   }
 
-  const { issueNumber, fileName, fileBase64 } = req.body || {};
+  const { issueNumber, fileName, fileUrl } = req.body || {};
 
-  if (!issueNumber || !fileName || !fileBase64) {
-    return res.status(400).json({ error: 'Missing required fields: issueNumber, fileName, fileBase64' });
+  if (!issueNumber || !fileName || !fileUrl) {
+    return res.status(400).json({ error: 'Missing required fields: issueNumber, fileName, fileUrl' });
   }
 
   try {
@@ -81,17 +46,11 @@ export default async function handler(
 
     const issue = await issueRes.json();
 
-    // Upload file
-    const downloadUrl = await uploadFileToRepo(token, fileName, fileBase64, issueNumber);
-    if (!downloadUrl) {
-      return res.status(500).json({ error: 'Failed to upload file' });
-    }
-
     // Build attachment markdown
     const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName);
     const attachmentLink = isImage
-      ? `![${fileName}](${downloadUrl})`
-      : `[${fileName}](${downloadUrl})`;
+      ? `![${fileName}](${fileUrl})`
+      : `[${fileName}](${fileUrl})`;
 
     // Append or update attachment section
     let updatedBody = issue.body || '';
@@ -124,7 +83,7 @@ export default async function handler(
 
     return res.status(200).json({
       success: true,
-      attachmentUrl: downloadUrl,
+      attachmentUrl: fileUrl,
     });
   } catch (err) {
     return res.status(500).json({

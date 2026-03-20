@@ -10,30 +10,6 @@ const GITHUB_HEADERS = (token: string) => ({
   'X-GitHub-Api-Version': '2022-11-28',
 });
 
-async function uploadFileToRepo(
-  token: string,
-  fileName: string,
-  fileBase64: string,
-  issueNumber: number
-): Promise<string | null> {
-  const path = `bug-attachments/issue-${issueNumber}/${fileName}`;
-  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`;
-
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: GITHUB_HEADERS(token),
-    body: JSON.stringify({
-      message: `Attachment for issue #${issueNumber}: ${fileName}`,
-      content: fileBase64,
-    }),
-  });
-
-  if (!res.ok) return null;
-
-  const data = await res.json();
-  return data.content?.download_url || null;
-}
-
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -51,23 +27,30 @@ export default async function handler(
     });
   }
 
-  const { project, name, email, title, description, fileName, fileBase64 } = req.body || {};
+  const { project, name, email, title, description, fileName, fileUrl } = req.body || {};
 
   if (!project || !name || !title || !description) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
+  // Build attachment section if file was uploaded to Vercel Blob
   let attachmentSection = '';
+  if (fileName && fileUrl) {
+    const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName);
+    attachmentSection = isImage
+      ? `\n\n### Attachment\n\n![${fileName}](${fileUrl})`
+      : `\n\n### Attachment\n\n[${fileName}](${fileUrl})`;
+  }
+
+  const issueBody =
+    `## Bug Report\n\n` +
+    `**Project:** ${project}\n` +
+    `**Reported by:** ${name}\n` +
+    `**Email:** ${email || 'N/A'}\n\n` +
+    `### Description\n\n${description}` +
+    attachmentSection;
 
   try {
-    // Create issue first (without attachment)
-    const issueBody =
-      `## Bug Report\n\n` +
-      `**Project:** ${project}\n` +
-      `**Reported by:** ${name}\n` +
-      `**Email:** ${email || 'N/A'}\n\n` +
-      `### Description\n\n${description}`;
-
     const response = await fetch(
       `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`,
       {
@@ -90,29 +73,6 @@ export default async function handler(
     }
 
     const issue = await response.json();
-
-    // Upload file if provided, then update issue body
-    if (fileName && fileBase64) {
-      const downloadUrl = await uploadFileToRepo(token, fileName, fileBase64, issue.number);
-      if (downloadUrl) {
-        const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName);
-        attachmentSection = isImage
-          ? `\n\n### Attachment\n\n![${fileName}](${downloadUrl})`
-          : `\n\n### Attachment\n\n[${fileName}](${downloadUrl})`;
-
-        // Update issue with attachment link
-        await fetch(
-          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}`,
-          {
-            method: 'PATCH',
-            headers: GITHUB_HEADERS(token),
-            body: JSON.stringify({
-              body: issueBody + attachmentSection,
-            }),
-          }
-        );
-      }
-    }
 
     return res.status(201).json({
       success: true,
