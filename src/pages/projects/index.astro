@@ -19,7 +19,7 @@ import { SITE_TITLE } from '../../consts';
 				<div class="project-card">
 					<div class="project-header">
 						<h2>PDF Selector</h2>
-						<span class="badge">Latest: v1.0.12</span>
+						<span class="badge" id="version-badge">Latest: ...</span>
 					</div>
 					<p data-i18n="pdfSelectorDesc">
 						A desktop tool to rename and organize PDF files quickly and efficiently.
@@ -27,7 +27,8 @@ import { SITE_TITLE } from '../../consts';
 					</p>
 					<div class="project-links">
 						<a
-							href="https://github.com/Baku452/pdf-selector/releases/download/v1.0.12/PDF_Renombrar_Archivos.exe"
+							id="download-exe-link"
+							href="#"
 							class="btn btn-download"
 							download
 						>
@@ -232,6 +233,36 @@ import { SITE_TITLE } from '../../consts';
 	document.addEventListener('langchange', (e) => {
 		applyLang((e as CustomEvent).detail.lang as Lang);
 	});
+
+	// Fetch latest release from GitHub
+	const REPO = 'Baku452/pdf-selector';
+	const versionBadge = document.getElementById('version-badge') as HTMLElement;
+	const downloadLink = document.getElementById('download-exe-link') as HTMLAnchorElement;
+
+	fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+		headers: { Accept: 'application/vnd.github+json' },
+		cache: 'no-store',
+	})
+		.then((res) => res.json())
+		.then((release) => {
+			const version = release.tag_name;
+			versionBadge.textContent = `Latest: ${version}`;
+
+			// Find the .exe asset
+			const exeAsset = release.assets?.find((a: { name: string }) =>
+				a.name.endsWith('.exe')
+			);
+			if (exeAsset) {
+				downloadLink.href = exeAsset.browser_download_url;
+			} else {
+				// Fallback to release page if no .exe found
+				downloadLink.href = release.html_url;
+			}
+		})
+		.catch(() => {
+			versionBadge.textContent = 'Latest';
+			downloadLink.href = `https://github.com/${REPO}/releases/latest`;
+		});
 </script>
 
 <style>
