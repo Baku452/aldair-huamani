@@ -1,4 +1,4 @@
-import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
+import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(
@@ -9,31 +9,46 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+
+  if (!token) {
+    return res.status(500).json({
+      error: 'Server misconfigured',
+      hint: 'BLOB_READ_WRITE_TOKEN env var is not set',
+    });
+  }
+
   try {
-    const jsonResponse = await handleUpload({
-      body: req.body as HandleUploadBody,
-      request: req as unknown as Request,
-      onBeforeGenerateToken: async (pathname) => {
-        return {
-          maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
-          allowedContentTypes: [
-            'image/png',
-            'image/jpeg',
-            'image/gif',
-            'image/webp',
-            'image/svg+xml',
-            'application/pdf',
-            'text/plain',
-          ],
-        };
+    const { pathname, callbackUrl, multipart, clientPayload } = req.body || {};
+
+    if (!pathname) {
+      return res.status(400).json({ error: 'Missing pathname' });
+    }
+
+    const clientToken = await generateClientTokenFromReadWriteToken({
+      token,
+      pathname,
+      onUploadCompleted: {
+        callbackUrl: callbackUrl || '',
       },
-      onUploadCompleted: async () => {},
+      maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
+      allowedContentTypes: [
+        'image/png',
+        'image/jpeg',
+        'image/gif',
+        'image/webp',
+        'image/svg+xml',
+        'application/pdf',
+        'text/plain',
+      ],
+      ...(multipart ? { multipart } : {}),
+      ...(clientPayload ? { clientPayload } : {}),
     });
 
-    return res.status(200).json(jsonResponse);
+    return res.status(200).json({ type: 'blob.generate-client-token', clientToken });
   } catch (err) {
     return res.status(400).json({
-      error: 'Upload failed',
+      error: 'Token generation failed',
       message: err instanceof Error ? err.message : String(err),
     });
   }
