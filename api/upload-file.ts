@@ -12,10 +12,10 @@ export default async function handler(
   try {
     const jsonResponse = await handleUpload({
       body: req.body,
-      request: new Request('https://dummy.url', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-      }),
+      request: {
+        headers: req.headers,
+        url: `https://${req.headers.host}${req.url}`,
+      } as unknown as Request,
       onBeforeGenerateToken: async () => {
         return {
           maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
