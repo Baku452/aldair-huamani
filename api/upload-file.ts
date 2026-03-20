@@ -30,7 +30,6 @@ export default async function handler(
           ],
         };
       },
-      onUploadCompleted: async () => {},
     });
 
     return res.status(200).json(jsonResponse);
