@@ -99,8 +99,9 @@ import { SITE_TITLE } from '../../consts';
 					</div>
 
 					<div class="form-group">
-						<label for="file-upload" data-i18n="uploadScreenshot">Upload Screenshot (optional)</label>
+						<label for="file-upload" data-i18n="uploadFile">Upload File (optional)</label>
 						<input type="file" id="file-upload" name="file-upload" accept="image/*,.pdf,.log,.txt" />
+						<span class="file-hint" data-i18n="fileHint">Supports images, PDF, .log, and .txt (max 10MB)</span>
 					</div>
 
 					<button type="submit" class="btn btn-submit" data-i18n="submitBugReport">Submit Bug Report</button>
@@ -124,6 +125,28 @@ import { SITE_TITLE } from '../../consts';
 	const form = document.getElementById('bug-form') as HTMLFormElement;
 	const success = document.getElementById('form-success') as HTMLElement;
 	const submitBtn = form.querySelector('.btn-submit') as HTMLButtonElement;
+	const nameInput = document.getElementById('name') as HTMLInputElement;
+	const emailInput = document.getElementById('email') as HTMLInputElement;
+	const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+
+	// Restore saved user info
+	const savedName = localStorage.getItem('bugReporter_name');
+	const savedEmail = localStorage.getItem('bugReporter_email');
+	if (savedName) nameInput.value = savedName;
+	if (savedEmail) emailInput.value = savedEmail;
+
+	function fileToBase64(file: File): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => {
+				const result = reader.result as string;
+				// Strip the data URL prefix to get pure base64
+				resolve(result.split(',')[1]);
+			};
+			reader.onerror = reject;
+			reader.readAsDataURL(file);
+		});
+	}
 
 	form.addEventListener('submit', async (e) => {
 		e.preventDefault();
@@ -131,13 +154,35 @@ import { SITE_TITLE } from '../../consts';
 		submitBtn.textContent = '...';
 
 		const formData = new FormData(form);
-		const payload = {
-			project: formData.get('project'),
-			name: formData.get('name'),
-			email: formData.get('email'),
-			title: formData.get('bug-title'),
-			description: formData.get('description'),
+		const nameVal = formData.get('name') as string;
+		const emailVal = formData.get('email') as string;
+
+		// Save user info for next time
+		localStorage.setItem('bugReporter_name', nameVal);
+		localStorage.setItem('bugReporter_email', emailVal);
+
+		const payload: Record<string, string | null> = {
+			project: formData.get('project') as string,
+			name: nameVal,
+			email: emailVal,
+			title: formData.get('bug-title') as string,
+			description: formData.get('description') as string,
 		};
+
+		// Handle file upload
+		const file = fileInput.files?.[0];
+		if (file) {
+			const maxSize = 10 * 1024 * 1024; // 10MB
+			if (file.size > maxSize) {
+				submitBtn.disabled = false;
+				const lang = localStorage.getItem('lang') || 'en';
+				submitBtn.textContent = lang === 'es' ? 'Enviar Reporte de Error' : 'Submit Bug Report';
+				alert(lang === 'es' ? 'El archivo es muy grande. Máximo 10MB.' : 'File is too large. Maximum 10MB.');
+				return;
+			}
+			payload.fileName = file.name;
+			payload.fileBase64 = await fileToBase64(file);
+		}
 
 		try {
 			const res = await fetch('/api/report-bug', {
@@ -354,6 +399,12 @@ import { SITE_TITLE } from '../../consts';
 	.form-group input[type="file"] {
 		padding: 0.5em;
 		cursor: pointer;
+	}
+
+	.file-hint {
+		font-size: 0.75em;
+		color: var(--paragraph);
+		opacity: 0.7;
 	}
 
 	.btn-submit {

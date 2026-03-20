@@ -38,7 +38,8 @@ export const translations = {
       'Please describe the bug in detail. Include ' +
       'steps to reproduce, expected behavior, and ' +
       'what actually happened.',
-    uploadScreenshot: 'Upload Screenshot (optional)',
+    uploadFile: 'Upload File (optional)',
+    fileHint: 'Supports images, PDF, .log, and .txt (max 10MB)',
     submitBugReport: 'Submit Bug Report',
     thankYouReport:
       "Thank you for your report! I'll look into " + 'it as soon as possible.',
@@ -62,6 +63,9 @@ export const translations = {
     inProgress: 'In Progress',
     resolved: 'Resolved',
     backToProjects: 'Back to Projects',
+    addAttachment: 'Add Attachment',
+    hasAttachment: 'Has Attachment',
+    uploadAttachment: 'Upload Attachment',
 
     // Footer
     allRightsReserved: 'All rights reserved.',
@@ -113,7 +117,8 @@ export const translations = {
       'Incluye los pasos para reproducirlo, el ' +
       'comportamiento esperado y lo que realmente ' +
       'sucedió.',
-    uploadScreenshot: 'Subir Captura de Pantalla (opcional)',
+    uploadFile: 'Subir Archivo (opcional)',
+    fileHint: 'Soporta imágenes, PDF, .log y .txt (máx 10MB)',
     submitBugReport: 'Enviar Reporte de Error',
     thankYouReport:
       '¡Gracias por tu reporte! Lo revisaré ' + 'lo antes posible.',
@@ -137,6 +142,9 @@ export const translations = {
     inProgress: 'En Progreso',
     resolved: 'Resueltos',
     backToProjects: 'Volver a Proyectos',
+    addAttachment: 'Agregar Archivo',
+    hasAttachment: 'Tiene Archivo',
+    uploadAttachment: 'Subir Archivo',
 
     // Footer
     allRightsReserved: 'Todos los derechos reservados.',

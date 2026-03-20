@@ -56,6 +56,24 @@ import { SITE_TITLE } from '../../consts';
 			<div class="bug-list" id="bug-list">
 				<p class="empty-state" data-i18n="noBugsFound">No bug reports found.</p>
 			</div>
+
+			<!-- Attachment Modal -->
+			<div class="modal-overlay" id="attachment-modal" style="display: none;">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h3 id="modal-title" data-i18n="addAttachment">Add Attachment</h3>
+						<button class="modal-close" id="modal-close">&times;</button>
+					</div>
+					<p class="modal-issue-info" id="modal-issue-info"></p>
+					<div class="form-group">
+						<label for="modal-file" data-i18n="uploadFile">Upload File</label>
+						<input type="file" id="modal-file" accept="image/*,.pdf,.log,.txt" />
+						<span class="file-hint" data-i18n="fileHint">Supports images, PDF, .log, and .txt (max 10MB)</span>
+					</div>
+					<button class="btn btn-submit" id="modal-submit" data-i18n="uploadAttachment">Upload Attachment</button>
+					<p class="modal-status" id="modal-status" style="display: none;"></p>
+				</div>
+			</div>
 		</main>
 		<Footer />
 	</body>
@@ -87,6 +105,7 @@ import { SITE_TITLE } from '../../consts';
 		date: string;
 		reporter: string;
 		url: string;
+		hasAttachment: boolean;
 	}
 
 	const statusLabels: Record<string, Record<string, string>> = {
@@ -131,12 +150,13 @@ import { SITE_TITLE } from '../../consts';
 				id: issue.number,
 				title: issue.title.replace(/^\[Bug\]\s*/i, ''),
 				description: issue.body
-					? issue.body.replace(/## Bug Report[\s\S]*?### Description\n\n/m, '').slice(0, 200)
+					? issue.body.replace(/## Bug Report[\s\S]*?### Description\n\n/m, '').replace(/\n\n### Attachment[\s\S]*$/, '').slice(0, 200)
 					: '',
 				status: mapStatus(issue),
 				date: issue.created_at,
 				reporter: parseReporter(issue.body),
 				url: issue.html_url,
+				hasAttachment: issue.body ? issue.body.includes('### Attachment') : false,
 			}));
 	}
 
@@ -176,28 +196,47 @@ import { SITE_TITLE } from '../../consts';
 			return;
 		}
 
+		const addAttachmentLabel = translations[lang].addAttachment || 'Add Attachment';
+		const hasAttachmentLabel = translations[lang].hasAttachment || 'Has Attachment';
+
 		bugList.innerHTML = filtered
 			.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 			.map(
 				(report) => `
-				<a class="bug-card" data-status="${report.status}" href="${escapeHtml(report.url)}" target="_blank">
-					<div class="bug-card-header">
-						<div class="bug-info">
-							<h3>#${report.id} ${escapeHtml(report.title)}</h3>
+				<div class="bug-card" data-status="${report.status}">
+					<a class="bug-card-link" href="${escapeHtml(report.url)}" target="_blank">
+						<div class="bug-card-header">
+							<div class="bug-info">
+								<h3>#${report.id} ${escapeHtml(report.title)}</h3>
+							</div>
+							<span class="status-badge status-${report.status}">
+								${statusLabels[lang]?.[report.status] || report.status}
+							</span>
 						</div>
-						<span class="status-badge status-${report.status}">
-							${statusLabels[lang]?.[report.status] || report.status}
-						</span>
-					</div>
-					<p class="bug-description">${escapeHtml(report.description)}</p>
+						<p class="bug-description">${escapeHtml(report.description)}</p>
+					</a>
 					<div class="bug-meta">
 						<span>${reportedByLabel} ${escapeHtml(report.reporter)}</span>
-						<span>${new Date(report.date).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+						<div class="bug-meta-right">
+							${report.hasAttachment ? `<span class="attachment-badge">${hasAttachmentLabel}</span>` : ''}
+							<button class="btn-attach" data-issue="${report.id}" data-title="${escapeHtml(report.title)}">${addAttachmentLabel}</button>
+							<span>${new Date(report.date).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+						</div>
 					</div>
-				</a>
+				</div>
 			`,
 			)
 			.join('');
+
+		// Bind attachment buttons
+		bugList.querySelectorAll('.btn-attach').forEach((btn) => {
+			btn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const issueId = (btn as HTMLElement).dataset.issue;
+				const issueTitle = (btn as HTMLElement).dataset.title;
+				openAttachmentModal(Number(issueId), issueTitle || '');
+			});
+		});
 	}
 
 	// Filter buttons
@@ -233,6 +272,99 @@ import { SITE_TITLE } from '../../consts';
 
 	document.addEventListener('langchange', (e) => {
 		applyLang((e as CustomEvent).detail.lang as Lang);
+	});
+
+	// Attachment modal logic
+	const modal = document.getElementById('attachment-modal') as HTMLElement;
+	const modalClose = document.getElementById('modal-close') as HTMLElement;
+	const modalFile = document.getElementById('modal-file') as HTMLInputElement;
+	const modalSubmit = document.getElementById('modal-submit') as HTMLButtonElement;
+	const modalStatus = document.getElementById('modal-status') as HTMLElement;
+	const modalIssueInfo = document.getElementById('modal-issue-info') as HTMLElement;
+	let currentIssueNumber = 0;
+
+	function openAttachmentModal(issueNumber: number, issueTitle: string) {
+		currentIssueNumber = issueNumber;
+		modalIssueInfo.textContent = `#${issueNumber} - ${issueTitle}`;
+		modalFile.value = '';
+		modalStatus.style.display = 'none';
+		modalSubmit.disabled = false;
+		modal.style.display = 'flex';
+	}
+
+	function closeModal() {
+		modal.style.display = 'none';
+		currentIssueNumber = 0;
+	}
+
+	modalClose.addEventListener('click', closeModal);
+	modal.addEventListener('click', (e) => {
+		if (e.target === modal) closeModal();
+	});
+
+	function fileToBase64(file: File): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => {
+				const result = reader.result as string;
+				resolve(result.split(',')[1]);
+			};
+			reader.onerror = reject;
+			reader.readAsDataURL(file);
+		});
+	}
+
+	modalSubmit.addEventListener('click', async () => {
+		const file = modalFile.files?.[0];
+		const lang = getLang();
+
+		if (!file) {
+			alert(lang === 'es' ? 'Selecciona un archivo.' : 'Please select a file.');
+			return;
+		}
+
+		const maxSize = 10 * 1024 * 1024;
+		if (file.size > maxSize) {
+			alert(lang === 'es' ? 'El archivo es muy grande. Máximo 10MB.' : 'File is too large. Maximum 10MB.');
+			return;
+		}
+
+		modalSubmit.disabled = true;
+		modalStatus.textContent = lang === 'es' ? 'Subiendo...' : 'Uploading...';
+		modalStatus.style.display = 'block';
+		modalStatus.className = 'modal-status';
+
+		try {
+			const fileBase64 = await fileToBase64(file);
+			const res = await fetch('/api/update-bug', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					issueNumber: currentIssueNumber,
+					fileName: file.name,
+					fileBase64,
+				}),
+			});
+
+			if (!res.ok) throw new Error('Failed');
+
+			modalStatus.textContent = lang === 'es' ? 'Archivo subido correctamente.' : 'File uploaded successfully.';
+			modalStatus.className = 'modal-status modal-success';
+
+			// Refresh the list after a short delay
+			setTimeout(async () => {
+				closeModal();
+				const bugList = document.getElementById('bug-list') as HTMLElement;
+				bugList.innerHTML = '<p class="empty-state loading">Loading...</p>';
+				const reports = await fetchIssues();
+				allReports = reports;
+				renderReports();
+			}, 1500);
+		} catch {
+			modalSubmit.disabled = false;
+			modalStatus.textContent = lang === 'es' ? 'Error al subir el archivo.' : 'Failed to upload file.';
+			modalStatus.className = 'modal-status modal-error';
+		}
 	});
 </script>
 
@@ -441,6 +573,155 @@ import { SITE_TITLE } from '../../consts';
 		opacity: 0.7;
 	}
 
+	:global(.bug-card-link) {
+		display: block;
+		text-decoration: none;
+		color: inherit;
+	}
+
+	:global(.btn-attach) {
+		background: transparent;
+		border: 1px solid var(--stroke);
+		color: var(--paragraph);
+		padding: 0.2em 0.6em;
+		border-radius: 6px;
+		font-size: 0.75em;
+		font-family: inherit;
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	:global(.btn-attach:hover) {
+		border-color: var(--highlight);
+		color: var(--highlight);
+	}
+
+	:global(.bug-meta-right) {
+		display: flex;
+		align-items: center;
+		gap: 0.75em;
+	}
+
+	:global(.attachment-badge) {
+		font-size: 0.7em;
+		background: var(--highlight);
+		color: var(--button-text);
+		padding: 0.15em 0.5em;
+		border-radius: 10px;
+		font-weight: 700;
+	}
+
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.6);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal-content {
+		background: var(--bg);
+		border-radius: 12px;
+		padding: 2em;
+		max-width: 500px;
+		width: 90%;
+		border: 1px solid var(--stroke);
+	}
+
+	.modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1em;
+	}
+
+	.modal-header h3 {
+		margin: 0;
+		color: var(--headline);
+	}
+
+	.modal-close {
+		background: none;
+		border: none;
+		font-size: 1.5em;
+		color: var(--paragraph);
+		cursor: pointer;
+		padding: 0;
+		line-height: 1;
+	}
+
+	.modal-issue-info {
+		color: var(--paragraph);
+		font-size: 0.9em;
+		margin-bottom: 1.5em;
+	}
+
+	.modal-content .form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4em;
+		margin-bottom: 1.5em;
+	}
+
+	.modal-content .form-group label {
+		font-weight: 700;
+		color: var(--headline);
+		font-size: 0.9em;
+	}
+
+	.modal-content .form-group input[type="file"] {
+		padding: 0.5em;
+		cursor: pointer;
+		border: 2px solid var(--stroke);
+		border-radius: 8px;
+		background: var(--card-bg);
+		color: var(--headline);
+	}
+
+	.file-hint {
+		font-size: 0.75em;
+		color: var(--paragraph);
+		opacity: 0.7;
+	}
+
+	.modal-content .btn-submit {
+		background: var(--highlight);
+		color: var(--button-text);
+		padding: 0.75em 1.5em;
+		border-radius: 8px;
+		font-size: 1rem;
+		font-weight: 700;
+		cursor: pointer;
+		border: none;
+		font-family: inherit;
+		width: 100%;
+	}
+
+	.modal-content .btn-submit:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.modal-status {
+		text-align: center;
+		margin-top: 1em;
+		font-size: 0.9em;
+		color: var(--paragraph);
+	}
+
+	.modal-success {
+		color: #4caf50;
+	}
+
+	.modal-error {
+		color: #f44336;
+	}
+
 	@media (max-width: 720px) {
 		.stats-grid {
 			grid-template-columns: repeat(2, 1fr);
@@ -448,6 +729,10 @@ import { SITE_TITLE } from '../../consts';
 
 		:global(.bug-card-header) {
 			flex-direction: column;
+		}
+
+		:global(.bug-meta-right) {
+			flex-wrap: wrap;
 		}
 	}
 </style>
