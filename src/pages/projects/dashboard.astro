@@ -330,7 +330,9 @@ import { SITE_TITLE } from '../../consts';
 
 		try {
 			const uploadedFiles: { name: string; url: string }[] = [];
+			const failedFiles: string[] = [];
 			const totalFiles = selectedFiles.length;
+			const timestamp = Date.now();
 
 			for (let i = 0; i < totalFiles; i++) {
 				const file = selectedFiles[i];
@@ -338,11 +340,19 @@ import { SITE_TITLE } from '../../consts';
 					? `Subiendo ${i + 1} de ${totalFiles}...`
 					: `Uploading ${i + 1} of ${totalFiles}...`;
 
-				const blob = await upload(`bug-attachments/issue-${currentIssueNumber}/${file.name}`, file, {
-					access: 'public',
-					handleUploadUrl: '/api/upload-file',
-				});
-				uploadedFiles.push({ name: file.name, url: blob.url });
+				try {
+					const blob = await upload(`bug-attachments/issue-${currentIssueNumber}/${timestamp}-${file.name}`, file, {
+						access: 'public',
+						handleUploadUrl: '/api/upload-file',
+					});
+					uploadedFiles.push({ name: file.name, url: blob.url });
+				} catch {
+					failedFiles.push(file.name);
+				}
+			}
+
+			if (uploadedFiles.length === 0) {
+				throw new Error('All files failed to upload');
 			}
 
 			modalStatus.textContent = lang === 'es' ? 'Actualizando reporte...' : 'Updating report...';
@@ -358,9 +368,13 @@ import { SITE_TITLE } from '../../consts';
 
 			if (!res.ok) throw new Error('Failed');
 
-			const successMsg = lang === 'es'
-				? `${uploadedFiles.length} archivo(s) subido(s) correctamente.`
-				: `${uploadedFiles.length} file(s) uploaded successfully.`;
+			const successMsg = failedFiles.length > 0
+				? (lang === 'es'
+					? `${uploadedFiles.length} subido(s), ${failedFiles.length} fallido(s): ${failedFiles.join(', ')}`
+					: `${uploadedFiles.length} uploaded, ${failedFiles.length} failed: ${failedFiles.join(', ')}`)
+				: (lang === 'es'
+					? `${uploadedFiles.length} archivo(s) subido(s) correctamente.`
+					: `${uploadedFiles.length} file(s) uploaded successfully.`);
 			modalStatus.textContent = successMsg;
 			modalStatus.className = 'modal-status modal-success';
 

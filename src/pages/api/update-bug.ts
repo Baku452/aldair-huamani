@@ -1,4 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { APIRoute } from 'astro';
+
+export const prerender = false;
 
 const REPO_OWNER = 'Baku452';
 const REPO_NAME = 'pdf-selector';
@@ -10,67 +12,61 @@ const GITHUB_HEADERS = (token: string) => ({
   'X-GitHub-Api-Version': '2022-11-28',
 });
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
-  if (req.method !== 'PATCH') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const token = process.env.GITHUB_TOKEN;
+export const PATCH: APIRoute = async ({ request }) => {
+  const token = import.meta.env.GITHUB_TOKEN;
 
   if (!token) {
-    return res.status(500).json({
-      error: 'Server misconfigured',
-      hint: 'GITHUB_TOKEN env var is not set',
+    return new Response(JSON.stringify({ error: 'Server misconfigured', hint: 'GITHUB_TOKEN not set' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  const { issueNumber, files } = req.body || {};
+  const { issueNumber, files } = await request.json();
   const fileList: { name: string; url: string }[] = Array.isArray(files) ? files : [];
 
   if (!issueNumber || fileList.length === 0) {
-    return res.status(400).json({ error: 'Missing required fields: issueNumber, files[]' });
+    return new Response(JSON.stringify({ error: 'Missing required fields: issueNumber, files[]' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {
-    // Fetch current issue body
     const issueRes = await fetch(
       `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}`,
       { headers: GITHUB_HEADERS(token) }
     );
 
     if (!issueRes.ok) {
-      return res.status(404).json({ error: 'Issue not found' });
+      return new Response(JSON.stringify({ error: 'Issue not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const issue = await issueRes.json();
 
-    // Build attachment markdown for all files
     const newLinks = fileList.map((f) => {
       const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(f.name);
       return isImage ? `![${f.name}](${f.url})` : `- [${f.name}](${f.url})`;
     });
 
-    // Append to existing attachments or create new section
     let updatedBody = issue.body || '';
     if (updatedBody.includes('### Attachments')) {
       updatedBody = updatedBody.replace(
         /### Attachments\n\n([\s\S]*)$/m,
-        (_, existing: string) => `### Attachments\n\n${existing.trim()}\n${newLinks.join('\n')}`
+        (_: string, existing: string) => `### Attachments\n\n${existing.trim()}\n${newLinks.join('\n')}`
       );
     } else if (updatedBody.includes('### Attachment')) {
-      // Migrate old single-attachment format
       updatedBody = updatedBody.replace(
         /### Attachment\n\n([\s\S]*)$/m,
-        (_, existing: string) => `### Attachments\n\n${existing.trim()}\n${newLinks.join('\n')}`
+        (_: string, existing: string) => `### Attachments\n\n${existing.trim()}\n${newLinks.join('\n')}`
       );
     } else {
       updatedBody += `\n\n### Attachments\n\n${newLinks.join('\n')}`;
     }
 
-    // Update the issue
     const updateRes = await fetch(
       `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issueNumber}`,
       {
@@ -82,20 +78,20 @@ export default async function handler(
 
     if (!updateRes.ok) {
       const err = await updateRes.text();
-      return res.status(updateRes.status).json({
-        error: 'Failed to update issue',
-        details: err,
+      return new Response(JSON.stringify({ error: 'Failed to update issue', details: err }), {
+        status: updateRes.status,
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      filesUploaded: fileList.length,
-    });
+    return new Response(
+      JSON.stringify({ success: true, filesUploaded: fileList.length }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   } catch (err) {
-    return res.status(500).json({
-      error: 'Unexpected error',
-      message: String(err),
-    });
+    return new Response(
+      JSON.stringify({ error: 'Unexpected error', message: String(err) }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
-}
+};

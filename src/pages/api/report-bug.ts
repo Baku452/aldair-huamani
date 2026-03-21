@@ -1,4 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { APIRoute } from 'astro';
+
+export const prerender = false;
 
 const REPO_OWNER = 'Baku452';
 const REPO_NAME = 'pdf-selector';
@@ -10,32 +12,27 @@ const GITHUB_HEADERS = (token: string) => ({
   'X-GitHub-Api-Version': '2022-11-28',
 });
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const token = process.env.GITHUB_TOKEN;
+export const POST: APIRoute = async ({ request }) => {
+  const token = import.meta.env.GITHUB_TOKEN;
 
   if (!token) {
-    return res.status(500).json({
-      error: 'Server misconfigured',
-      hint: 'GITHUB_TOKEN env var is not set',
+    return new Response(JSON.stringify({ error: 'Server misconfigured', hint: 'GITHUB_TOKEN not set' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  const { project, name, email, title, description, files } = req.body || {};
+  const { project, name, email, title, description, files } = await request.json();
 
   if (!project || !name || !title || !description) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
-  // Build attachment section for all uploaded files
-  let attachmentSection = '';
   const fileList: { name: string; url: string }[] = Array.isArray(files) ? files : [];
+  let attachmentSection = '';
   if (fileList.length > 0) {
     const links = fileList.map((f) => {
       const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(f.name);
@@ -68,23 +65,22 @@ export default async function handler(
 
     if (!response.ok) {
       const err = await response.text();
-      return res.status(response.status).json({
-        error: 'Failed to create issue',
-        details: err,
+      return new Response(JSON.stringify({ error: 'Failed to create issue', details: err }), {
+        status: response.status,
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
     const issue = await response.json();
 
-    return res.status(201).json({
-      success: true,
-      issueUrl: issue.html_url,
-      issueNumber: issue.number,
-    });
+    return new Response(
+      JSON.stringify({ success: true, issueUrl: issue.html_url, issueNumber: issue.number }),
+      { status: 201, headers: { 'Content-Type': 'application/json' } }
+    );
   } catch (err) {
-    return res.status(500).json({
-      error: 'Unexpected error',
-      message: String(err),
-    });
+    return new Response(
+      JSON.stringify({ error: 'Unexpected error', message: String(err) }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
-}
+};

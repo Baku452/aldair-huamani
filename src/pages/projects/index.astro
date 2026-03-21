@@ -162,6 +162,7 @@ import { SITE_TITLE } from '../../consts';
 		// Upload files to Vercel Blob if provided
 		const selectedFiles = fileInput.files;
 		const uploadedFiles: { name: string; url: string }[] = [];
+		const failedFiles: string[] = [];
 		if (selectedFiles && selectedFiles.length > 0) {
 			const maxSize = 50 * 1024 * 1024; // 50MB per file
 			for (const file of Array.from(selectedFiles)) {
@@ -175,15 +176,19 @@ import { SITE_TITLE } from '../../consts';
 					return;
 				}
 			}
-			try {
-				for (const file of Array.from(selectedFiles)) {
-					const blob = await upload(`bug-attachments/${file.name}`, file, {
+			const timestamp = Date.now();
+			for (const file of Array.from(selectedFiles)) {
+				try {
+					const blob = await upload(`bug-attachments/${timestamp}-${file.name}`, file, {
 						access: 'public',
 						handleUploadUrl: '/api/upload-file',
 					});
 					uploadedFiles.push({ name: file.name, url: blob.url });
+				} catch {
+					failedFiles.push(file.name);
 				}
-			} catch {
+			}
+			if (failedFiles.length > 0 && uploadedFiles.length === 0) {
 				submitBtn.disabled = false;
 				submitBtn.textContent = lang === 'es' ? 'Enviar Reporte de Error' : 'Submit Bug Report';
 				alert(lang === 'es' ? 'Error al subir los archivos.' : 'Failed to upload files.');
