@@ -254,25 +254,23 @@ import { SITE_TITLE } from '../../consts';
 	const versionBadge = document.getElementById('version-badge') as HTMLElement;
 	const downloadLink = document.getElementById('download-exe-link') as HTMLAnchorElement;
 
-	fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+	fetch(`https://api.github.com/repos/${REPO}/releases?per_page=10`, {
 		headers: { Accept: 'application/vnd.github+json' },
 		cache: 'no-store',
 	})
 		.then((res) => res.json())
-		.then((release) => {
-			const version = release.tag_name;
-			versionBadge.textContent = `Latest: ${version}`;
-
-			// Find the .exe asset
-			const exeAsset = release.assets?.find((a: { name: string }) =>
-				a.name.endsWith('.exe')
+		.then((releases: { tag_name: string; html_url: string; assets: { name: string; browser_download_url: string }[] }[]) => {
+			// Find the first release that has a .exe asset
+			const release = releases.find((r) =>
+				r.assets?.some((a) => a.name.endsWith('.exe'))
 			);
-			if (exeAsset) {
-				downloadLink.href = exeAsset.browser_download_url;
-			} else {
-				// Fallback to release page if no .exe found
-				downloadLink.href = release.html_url;
+			if (!release) {
+				downloadLink.href = `https://github.com/${REPO}/releases`;
+				return;
 			}
+			versionBadge.textContent = `Latest: ${release.tag_name}`;
+			const exeAsset = release.assets.find((a) => a.name.endsWith('.exe'))!;
+			downloadLink.href = exeAsset.browser_download_url;
 		})
 		.catch(() => {
 			versionBadge.textContent = 'Latest';
