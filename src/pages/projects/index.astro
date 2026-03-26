@@ -259,9 +259,10 @@ import { SITE_TITLE } from '../../consts';
 		cache: 'no-store',
 	})
 		.then((res) => res.json())
-		.then((releases: { tag_name: string; html_url: string; assets: { name: string; browser_download_url: string }[] }[]) => {
-			// Find the first release that has a .exe asset
+		.then((releases: { tag_name: string; prerelease: boolean; html_url: string; assets: { name: string; browser_download_url: string }[] }[]) => {
+			// Find the first stable release that has a .exe asset
 			const release = releases.find((r) =>
+				!r.prerelease &&
 				r.assets?.some((a) => a.name.endsWith('.exe'))
 			);
 			if (!release) {
