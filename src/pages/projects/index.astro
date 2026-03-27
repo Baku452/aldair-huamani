@@ -19,7 +19,7 @@ import { SITE_TITLE } from '../../consts';
 				<div class="project-card">
 					<div class="project-header">
 						<h2>PDF Selector</h2>
-						<span class="badge" id="version-badge">Latest: ...</span>
+						<span class="badge skeleton" id="version-badge"></span>
 					</div>
 					<p data-i18n="pdfSelectorDesc">
 						A desktop tool to rename and organize PDF files quickly and efficiently.
@@ -267,13 +267,16 @@ import { SITE_TITLE } from '../../consts';
 			);
 			if (!release) {
 				downloadLink.href = `https://github.com/${REPO}/releases`;
+				versionBadge.classList.remove('skeleton');
 				return;
 			}
+			versionBadge.classList.remove('skeleton');
 			versionBadge.textContent = `Latest: ${release.tag_name}`;
 			const exeAsset = release.assets.find((a) => a.name.endsWith('.exe'))!;
 			downloadLink.href = exeAsset.browser_download_url;
 		})
 		.catch(() => {
+			versionBadge.classList.remove('skeleton');
 			versionBadge.textContent = 'Latest';
 			downloadLink.href = `https://github.com/${REPO}/releases/latest`;
 		});
@@ -311,6 +314,25 @@ import { SITE_TITLE } from '../../consts';
 		border-radius: 20px;
 		font-size: 0.75em;
 		font-weight: 700;
+	}
+
+	.badge.skeleton {
+		background: linear-gradient(
+			90deg,
+			var(--card-bg) 25%,
+			color-mix(in srgb, var(--card-bg) 60%, var(--bg)) 50%,
+			var(--card-bg) 75%
+		);
+		background-size: 200% 100%;
+		animation: shimmer 1.5s infinite;
+		color: transparent;
+		width: 80px;
+		min-height: 1.4em;
+	}
+
+	@keyframes shimmer {
+		0%   { background-position: 200% 0; }
+		100% { background-position: -200% 0; }
 	}
 
 	.project-card p {

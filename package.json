@@ -16,8 +16,10 @@
     "@astrojs/rss": "^4.0.17",
     "@astrojs/sitemap": "^3.7.1",
     "@astrojs/vercel": "^10.0.2",
+    "@iconify-json/lucide": "^1.2.99",
     "@vercel/blob": "^2.3.1",
     "astro": "^6.0.5",
+    "astro-icon": "^1.1.5",
     "sharp": "^0.34.3"
   },
   "devDependencies": {
