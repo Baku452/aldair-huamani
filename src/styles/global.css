@@ -5,26 +5,49 @@
  */
 
 :root {
-  --bg: #f9f4ef;
-  --headline: #020826;
-  --paragraph: #716040;
-  --button: #8c7851;
-  --button-text: #fffffe;
-  --stroke: #020826;
-  --card-bg: #eaddcf;
-  --card-text: #020826;
-  --highlight: #6e130a;
-  --link: #8c7851;
-  --accent: #8c7851;
-  --accent-dark: #6b5a3e;
-  --black: 2, 8, 38;
-  --gray: 113, 96, 64;
-  --gray-light: 234, 221, 207;
-  --gray-dark: 2, 8, 38;
+  --bg: #fdf6ee;           /* foam / cream */
+  --headline: #2c1a0e;     /* espresso */
+  --paragraph: #5c3d2e;    /* dark roast */
+  --button: #a07850;       /* cappuccino */
+  --button-text: #fdf6ee;  /* cream */
+  --stroke: #2c1a0e;       /* espresso */
+  --card-bg: #e8d5be;      /* steamed milk / latte */
+  --card-text: #2c1a0e;    /* espresso */
+  --highlight: #9b5e2a;    /* cinnamon */
+  --link: #a07850;         /* cappuccino */
+  --accent: #a07850;       /* cappuccino */
+  --accent-dark: #7b4a28;  /* dark roast accent */
+  --matcha: #4a7c59;       /* matcha green — action/contrast accent */
+  --matcha-dark: #375c42;  /* deep matcha for hover */
+  --black: 44, 26, 14;
+  --gray: 92, 61, 46;
+  --gray-light: 232, 213, 190;
+  --gray-dark: 44, 26, 14;
   --gray-gradient: rgba(var(--gray-light), 50%), var(--bg);
   --box-shadow:
     0 2px 6px rgba(var(--gray), 25%), 0 8px 24px rgba(var(--gray), 33%),
     0 16px 32px rgba(var(--gray), 33%);
+}
+@font-face {
+  font-family: 'Fraunces';
+  src: url('/fonts/Fraunces-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Fraunces';
+  src: url('/fonts/Fraunces-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Fraunces';
+  src: url('/fonts/Fraunces-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
 }
 @font-face {
   font-family: 'Lato';
@@ -67,6 +90,7 @@ h6 {
   margin: 0 0 0.5rem 0;
   color: var(--headline);
   line-height: 1.2;
+  font-family: 'Fraunces', Georgia, serif;
 }
 h1 {
   font-size: 3.052em;
